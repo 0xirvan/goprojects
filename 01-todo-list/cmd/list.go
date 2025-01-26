@@ -18,13 +18,18 @@ var listCmd = &cobra.Command{
 	
 	This will list all tasks in your TODO List.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		tasks.ReadAllTasks()
+		all, _ := cmd.Flags().GetBool("all")
+		if all {
+			tasks.ShowAllTask()
+		} else {
+			tasks.ShowCompletedTasks()
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(listCmd)
-
+	listCmd.Flags().BoolP("all", "a", false, "List all tasks")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
