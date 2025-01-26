@@ -38,7 +38,7 @@ func ReadFile() ([][]string, error) {
 func timeDiff(createdAt string) (string, error) {
 	time, err := time.Parse(time.RFC3339, createdAt)
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		return "", err
 	}
 	return timediff.TimeDiff(time), nil
@@ -48,7 +48,7 @@ func ShowAllTask() {
 	// Read the file
 	records, err := ReadFile()
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		return
 	}
 
@@ -58,34 +58,29 @@ func ShowAllTask() {
 
 	// Write the records to the writer
 	for i, record := range records {
-
 		if len(record) < 4 {
-			fmt.Println("Invalid record:", record)
+			fmt.Fprintln(os.Stderr, "Invalid record:", record)
 			continue
-
 		}
 
 		if i > 0 {
 			timeDiff, err := timeDiff(record[2])
 			if err != nil {
-				fmt.Println("Error:", err)
+				fmt.Fprintln(os.Stderr, "Error:", err)
 				return
 			}
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", record[0], record[1], timeDiff, record[3])
 		} else {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", record[0], record[1], record[2], record[3])
 		}
-
 	}
-
 }
 
 func ShowCompletedTasks() {
 	// Read the file
-
 	records, err := ReadFile()
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 		return
 	}
 
@@ -96,7 +91,7 @@ func ShowCompletedTasks() {
 	// Write the records to the writer
 	for i, record := range records {
 		if len(record) < 4 {
-			fmt.Println("Invalid record:", record)
+			fmt.Fprintln(os.Stderr, "Invalid record:", record)
 			continue
 		}
 
@@ -104,7 +99,7 @@ func ShowCompletedTasks() {
 			if r, err := strconv.ParseBool(record[3]); err == nil && r {
 				timeDiff, err := timeDiff(record[2])
 				if err != nil {
-					fmt.Println("Error:", err)
+					fmt.Fprintln(os.Stderr, "Error:", err)
 					return
 				}
 				fmt.Fprintf(w, "%s\t%s\t%s\n", record[0], record[1], timeDiff)
@@ -113,5 +108,4 @@ func ShowCompletedTasks() {
 			fmt.Fprintf(w, "%s\t%s\t%s\n", record[0], record[1], record[2])
 		}
 	}
-
 }
