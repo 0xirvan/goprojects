@@ -4,6 +4,7 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"github.com/0xirvan/goprojects/01-todo-list/tasks"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +19,12 @@ task add "Learn Go"
 This will add a new task "Learn Go" to your TODO List.
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-
+		if len(args) == 0 {
+			cmd.Help()
+			return
+		}
+		description := args[0]
+		tasks.AddNewTask(description)
 	},
 }
 

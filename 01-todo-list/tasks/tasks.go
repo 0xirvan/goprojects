@@ -15,7 +15,7 @@ import (
 type Tasks struct {
 	ID          int
 	Description string
-	CratedAt    time.Time
+	CreatedAt   time.Time
 	IsCompleted bool
 }
 
@@ -39,7 +39,7 @@ func closeFile(f *os.File) error {
 	return f.Close()
 }
 
-func ReadFile() ([][]string, error) {
+func ReadFile() ([]Tasks, error) {
 	// Open the file
 	file, err := loadFile("db/db.csv")
 	if err != nil {
@@ -53,21 +53,62 @@ func ReadFile() ([][]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return records, nil
+
+	var tasks []Tasks
+	for i, record := range records {
+		if i == 0 {
+			continue // Skip header
+		}
+		id, _ := strconv.Atoi(record[0])
+		createdAt, _ := time.Parse(time.RFC3339, record[2])
+		isCompleted, _ := strconv.ParseBool(record[3])
+		tasks = append(tasks, Tasks{
+			ID:          id,
+			Description: record[1],
+			CreatedAt:   createdAt,
+			IsCompleted: isCompleted,
+		})
+	}
+	return tasks, nil
 }
 
-func timeDiff(createdAt string) (string, error) {
-	time, err := time.Parse(time.RFC3339, createdAt)
+func AppendToFile(task Tasks) error {
+	// Open the file in append mode
+	file, err := os.OpenFile("db/db.csv", os.O_APPEND|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error:", err)
-		return "", err
+		return fmt.Errorf("failed to open file for appending: %w", err)
 	}
-	return timediff.TimeDiff(time), nil
+	defer closeFile(file)
+
+	// Lock the file
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("failed to lock file: %w", err)
+	}
+	defer syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+
+	// Write the new record
+	writer := csv.NewWriter(file)
+	record := []string{
+		strconv.Itoa(task.ID),
+		task.Description,
+		task.CreatedAt.Format(time.RFC3339),
+		strconv.FormatBool(task.IsCompleted),
+	}
+	if err := writer.Write(record); err != nil {
+		return fmt.Errorf("failed to write record: %w", err)
+	}
+	writer.Flush()
+
+	return nil
+}
+
+func timeDiff(createdAt time.Time) string {
+	return timediff.TimeDiff(createdAt)
 }
 
 func ShowAllTask() {
 	// Read the file
-	records, err := ReadFile()
+	tasks, err := ReadFile()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		return
@@ -77,29 +118,18 @@ func ShowAllTask() {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.Debug)
 	defer w.Flush() // Flush the writer
 
-	// Write the records to the writer
-	for i, record := range records {
-		if len(record) < 4 {
-			fmt.Fprintln(os.Stderr, "Invalid record:", record)
-			continue
-		}
+	// show the header
+	fmt.Fprintln(w, "ID\tDescription\tCreated At\tCompleted")
 
-		if i > 0 {
-			timeDiff, err := timeDiff(record[2])
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "Error:", err)
-				return
-			}
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", record[0], record[1], timeDiff, record[3])
-		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", record[0], record[1], record[2], record[3])
-		}
+	// Write the records to the writer
+	for _, task := range tasks {
+		fmt.Fprintf(w, "%d\t%s\t%s\t%t\n", task.ID, task.Description, timeDiff(task.CreatedAt), task.IsCompleted)
 	}
 }
 
 func ShowCompletedTasks() {
 	// Read the file
-	records, err := ReadFile()
+	tasks, err := ReadFile()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		return
@@ -109,24 +139,38 @@ func ShowCompletedTasks() {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', tabwriter.Debug)
 	defer w.Flush() // Flush the writer
 
-	// Write the records to the writer
-	for i, record := range records {
-		if len(record) < 4 {
-			fmt.Fprintln(os.Stderr, "Invalid record:", record)
-			continue
-		}
+	// show the header
+	fmt.Fprintln(w, "ID\tDescription\tCreated At\tCompleted")
 
-		if i > 0 {
-			if r, err := strconv.ParseBool(record[3]); err == nil && r {
-				timeDiff, err := timeDiff(record[2])
-				if err != nil {
-					fmt.Fprintln(os.Stderr, "Error:", err)
-					return
-				}
-				fmt.Fprintf(w, "%s\t%s\t%s\n", record[0], record[1], timeDiff)
-			}
-		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", record[0], record[1], record[2])
+	// Write the records to the writer
+	for _, task := range tasks {
+		if task.IsCompleted {
+			fmt.Fprintf(w, "%d\t%s\t%s\n", task.ID, task.Description, timeDiff(task.CreatedAt))
 		}
 	}
+}
+
+func AddNewTask(description string) {
+	// Read the file
+	tasks, err := ReadFile()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		return
+	}
+
+	// Create new task
+	newTask := Tasks{
+		ID:          len(tasks) + 1,
+		Description: description,
+		CreatedAt:   time.Now(),
+		IsCompleted: false,
+	}
+
+	// Write the new task to the file
+	if err := AppendToFile(newTask); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		return
+	}
+
+	fmt.Fprintln(os.Stdout, "Task added successfully")
 }
