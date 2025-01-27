@@ -225,3 +225,53 @@ func DeleteTask(id int) {
 		w.Write(record)
 	}
 }
+
+func CompleteTask(id int) {
+	tasks, err := ReadFile()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		return
+	}
+
+	if id > len(tasks) {
+		fmt.Fprintln(os.Stderr, "Error: Task not found")
+		return
+	}
+
+	// Mark the task as completed
+	for i, task := range tasks {
+		if task.ID == id {
+			tasks[i].IsCompleted = true
+		}
+	}
+
+	file, err := os.OpenFile("db/db.csv", os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		return
+	}
+	defer closeFile(file)
+
+	// Lock the file
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+	}
+	defer syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
+
+	// Write the new tasks to the file
+	w := csv.NewWriter(file)
+	defer w.Flush()
+
+	// Write the header
+	w.Write([]string{"ID", "Description", "CreatedAt", "IsCompleted"})
+	for _, t := range tasks {
+		record := []string{
+			strconv.Itoa(t.ID),
+			t.Description,
+			t.CreatedAt.Format(time.RFC3339),
+			strconv.FormatBool(t.IsCompleted),
+		}
+		w.Write(record)
+	}
+
+}
