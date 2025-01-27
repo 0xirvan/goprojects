@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -18,13 +19,33 @@ type Tasks struct {
 	IsCompleted bool
 }
 
+func loadFile(filepath string) (*os.File, error) {
+	f, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file for reading")
+	}
+
+	// Exclusive lock obtained on the file descriptor
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+
+	return f, nil
+}
+
+func closeFile(f *os.File) error {
+	syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	return f.Close()
+}
+
 func ReadFile() ([][]string, error) {
 	// Open the file
-	file, err := os.Open("db/db.csv")
+	file, err := loadFile("db/db.csv")
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer closeFile(file)
 
 	// Read the file
 	data := csv.NewReader(file)
