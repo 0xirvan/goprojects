@@ -17,6 +17,7 @@ For example:
 task add "Learn Go"
 
 This will add a new task "Learn Go" to your TODO List.
+Need "quotes" around the task description if you want space.
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
