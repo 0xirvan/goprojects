@@ -140,7 +140,7 @@ func ShowCompletedTasks() {
 	defer w.Flush() // Flush the writer
 
 	// show the header
-	fmt.Fprintln(w, "ID\tDescription\tCreated At\tCompleted")
+	fmt.Fprintln(w, "ID\tDescription\tCreated At")
 
 	// Write the records to the writer
 	for _, task := range tasks {
