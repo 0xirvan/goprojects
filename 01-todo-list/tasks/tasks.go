@@ -182,6 +182,11 @@ func DeleteTask(id int) {
 		return
 	}
 
+	if id > len(task) {
+		fmt.Fprintln(os.Stderr, "Error: Task not found")
+		return
+	}
+
 	// Filter the task
 	var newTasks []Tasks
 	for _, t := range task {
@@ -196,6 +201,12 @@ func DeleteTask(id int) {
 		return
 	}
 	defer closeFile(file)
+
+	// Lock the file
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+	}
+	defer syscall.Flock(int(file.Fd()), syscall.LOCK_UN)
 
 	// Write the new tasks to the file
 	w := csv.NewWriter(file)
