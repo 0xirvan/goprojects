@@ -174,3 +174,43 @@ func AddNewTask(description string) {
 
 	fmt.Fprintln(os.Stdout, "Task added successfully")
 }
+
+func DeleteTask(id int) {
+	task, err := ReadFile()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		return
+	}
+
+	// Filter the task
+	var newTasks []Tasks
+	for _, t := range task {
+		if t.ID != id {
+			newTasks = append(newTasks, t)
+		}
+	}
+
+	file, err := os.OpenFile("db/db.csv", os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		return
+	}
+	defer closeFile(file)
+
+	// Write the new tasks to the file
+	w := csv.NewWriter(file)
+	defer w.Flush()
+
+	// Write the header
+	w.Write([]string{"ID", "Description", "CreatedAt", "IsCompleted"})
+
+	for _, t := range newTasks {
+		record := []string{
+			strconv.Itoa(t.ID),
+			t.Description,
+			t.CreatedAt.Format(time.RFC3339),
+			strconv.FormatBool(t.IsCompleted),
+		}
+		w.Write(record)
+	}
+}
