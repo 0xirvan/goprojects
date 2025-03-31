@@ -8,17 +8,27 @@ import (
 	"os"
 	"regexp"
 	"sync"
+	"time"
 
 	"golang.org/x/net/html"
 )
 
 const baseUrl string = "https://scrape-me.dreamsofcode.io"
 
+var urlCount uint
+
 func main() {
+	start := time.Now()
 	linksCh := make(chan string)
 	htmlChan := make(chan *html.Node)
 
-	client := &http.Client{}
+	client := &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConns:        100,
+			MaxIdleConnsPerHost: 100,
+			IdleConnTimeout:     30 * time.Second,
+		},
+	}
 
 	var wg sync.WaitGroup
 	visited := make(map[string]bool)
@@ -52,6 +62,7 @@ func main() {
 				continue
 			}
 			visited[link] = true
+			urlCount++
 			mu.Unlock()
 
 			wg.Add(1)
@@ -64,6 +75,9 @@ func main() {
 
 	wg.Wait()
 	close(htmlChan)
+
+	fmt.Println("Total URLs fetched:", urlCount)
+	fmt.Printf("Execution time: %s\n", time.Since(start))
 }
 
 func extractLinks(n *html.Node, linksCh chan<- string, fileMutex *sync.Mutex) {
@@ -122,6 +136,7 @@ func extractLinks(n *html.Node, linksCh chan<- string, fileMutex *sync.Mutex) {
 }
 
 func fetchPage(baseUrl string, client *http.Client, htmlChan chan<- *html.Node) {
+	start := time.Now()
 
 	parsedUrl, err := url.Parse(baseUrl)
 	if err != nil {
@@ -151,4 +166,5 @@ func fetchPage(baseUrl string, client *http.Client, htmlChan chan<- *html.Node) 
 
 	htmlChan <- doc
 	log.Println("Fetched: ", normalizedURL)
+	log.Printf("Time taken to fetch %s: %s\n", normalizedURL, time.Since(start))
 }
